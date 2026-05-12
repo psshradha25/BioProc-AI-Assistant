@@ -1,0 +1,14 @@
+streamlit
+pandas
+matplotlib
+scipy
+ollama
+pypdf
+langchain
+langchain-community
+langchain-text-splitters
+chromadb
+sentence-transformers
+openpyxl
+torch
+torchvision

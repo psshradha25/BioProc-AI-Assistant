@@ -1,0 +1,6 @@
+{
+    "python.defaultInterpreterPath": "python",
+    "python.analysis.typeCheckingMode": "basic",
+    "files.autoSave": "afterDelay",
+    "editor.formatOnSave": true
+}

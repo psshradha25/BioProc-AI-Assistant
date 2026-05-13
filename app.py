@@ -1,13 +1,8 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-
 from scipy.signal import find_peaks
-
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from pypdf import PdfReader
 
 # =====================================================
 # PAGE CONFIG
@@ -79,7 +74,7 @@ Possible DSP considerations:
 - Evaluate membrane fouling if UF/DF involved
 - Confirm resin binding capacity
 
-This lightweight demo version is GitHub and Streamlit deployment ready.
+This lightweight demo version is deployment ready.
 """
 
             st.success("AI Response Generated")
@@ -92,7 +87,7 @@ This lightweight demo version is GitHub and Streamlit deployment ready.
 
 elif page == "PDF SOP Analyzer":
 
-    st.header("📄 DSP SOP RAG Assistant")
+    st.header("📄 DSP SOP Analyzer")
 
     uploaded_file = st.file_uploader(
         "Upload SOP PDF",
@@ -101,34 +96,20 @@ elif page == "PDF SOP Analyzer":
 
     if uploaded_file is not None:
 
-        with open("temp.pdf", "wb") as f:
-            f.write(uploaded_file.read())
-
         try:
 
-            with st.spinner("Processing PDF..."):
+            reader = PdfReader(uploaded_file)
 
-                loader = PyPDFLoader("temp.pdf")
+            text = ""
 
-                documents = loader.load()
+            for page_pdf in reader.pages:
 
-                text_splitter = RecursiveCharacterTextSplitter(
-                    chunk_size=500,
-                    chunk_overlap=50
-                )
+                extracted = page_pdf.extract_text()
 
-                docs = text_splitter.split_documents(documents)
+                if extracted:
+                    text += extracted
 
-                embedding_model = HuggingFaceEmbeddings(
-                    model_name="sentence-transformers/all-MiniLM-L6-v2"
-                )
-
-                db = Chroma.from_documents(
-                    docs,
-                    embedding_model
-                )
-
-                st.success("PDF Processed Successfully")
+            st.success("PDF Loaded Successfully")
 
             user_question = st.text_area(
                 "Ask question about SOP",
@@ -137,26 +118,26 @@ elif page == "PDF SOP Analyzer":
 
             if st.button("Analyze SOP"):
 
-                results = db.similarity_search(
-                    user_question,
-                    k=3
-                )
+                st.markdown("## 🔬 SOP Analysis")
 
-                context = ""
+                if user_question.lower() in text.lower():
 
-                for result in results:
-                    context += result.page_content + "\n\n"
+                    st.success(
+                        "Relevant information found in SOP."
+                    )
 
-                st.markdown("## 🔬 SOP Answer")
+                else:
 
-                st.write(
-                    "Relevant SOP sections retrieved successfully."
-                )
+                    st.warning(
+                        "Exact match not found. Review SOP text below."
+                    )
 
-                with st.expander("View Retrieved SOP Chunks"):
-                    st.write(context)
+                with st.expander("View Extracted SOP Text"):
+
+                    st.write(text[:5000])
 
         except Exception as e:
+
             st.error(f"Error: {e}")
 
 # =====================================================
@@ -244,9 +225,20 @@ elif page == "DSP Calculator":
 
     if calculator == "TMP Calculator":
 
-        feed = st.number_input("Feed Pressure", value=20.0)
-        ret = st.number_input("Retentate Pressure", value=10.0)
-        perm = st.number_input("Permeate Pressure", value=2.0)
+        feed = st.number_input(
+            "Feed Pressure",
+            value=20.0
+        )
+
+        ret = st.number_input(
+            "Retentate Pressure",
+            value=10.0
+        )
+
+        perm = st.number_input(
+            "Permeate Pressure",
+            value=2.0
+        )
 
         if st.button("Calculate TMP"):
 
@@ -256,8 +248,15 @@ elif page == "DSP Calculator":
 
     elif calculator == "Flux Calculator":
 
-        flow = st.number_input("Flow Rate", value=50.0)
-        area = st.number_input("Membrane Area", value=0.5)
+        flow = st.number_input(
+            "Flow Rate",
+            value=50.0
+        )
+
+        area = st.number_input(
+            "Membrane Area",
+            value=0.5
+        )
 
         if st.button("Calculate Flux"):
 
@@ -267,9 +266,20 @@ elif page == "DSP Calculator":
 
     elif calculator == "Membrane Area Calculator":
 
-        volume = st.number_input("Volume", value=100.0)
-        flux = st.number_input("Flux", value=50.0)
-        time = st.number_input("Time", value=4.0)
+        volume = st.number_input(
+            "Volume",
+            value=100.0
+        )
+
+        flux = st.number_input(
+            "Flux",
+            value=50.0
+        )
+
+        time = st.number_input(
+            "Time",
+            value=4.0
+        )
 
         if st.button("Calculate Area"):
 
@@ -316,13 +326,18 @@ elif page == "Chromatogram Analysis":
 
                 ax.plot(df[x_column], df[y_column])
 
+                ax.set_title("Chromatogram")
+
                 st.pyplot(fig)
 
                 peaks, _ = find_peaks(df[y_column])
 
-                st.write(f"Detected Peaks: {len(peaks)}")
+                st.success(
+                    f"Detected Peaks: {len(peaks)}"
+                )
 
         except Exception as e:
+
             st.error(f"Error: {e}")
 
 # =====================================================
@@ -347,12 +362,20 @@ elif page == "Chromatogram Comparison":
 
     if file1 and file2:
 
-        df1 = pd.read_csv(file1)
-        df2 = pd.read_csv(file2)
+        try:
 
-        st.success("Files Loaded")
+            df1 = pd.read_csv(file1)
+            df2 = pd.read_csv(file2)
 
-        st.write("Comparison ready.")
+            st.success("Files Loaded")
+
+            st.write(
+                "Chromatogram comparison ready."
+            )
+
+        except Exception as e:
+
+            st.error(f"Error: {e}")
 
 # =====================================================
 # POOLING RECOMMENDATION
@@ -369,35 +392,52 @@ elif page == "Pooling Recommendation":
 
     if uploaded_file is not None:
 
-        df = pd.read_csv(uploaded_file)
+        try:
 
-        x_column = st.selectbox(
-            "Select X Axis",
-            df.columns
-        )
+            df = pd.read_csv(uploaded_file)
 
-        y_column = st.selectbox(
-            "Select Y Axis",
-            df.columns
-        )
-
-        if st.button("Generate Pooling Recommendation"):
-
-            peak_index = int(df[y_column].idxmax())
-
-            left = max(peak_index - 1, 0)
-            right = min(peak_index + 1, len(df) - 1)
-
-            pooling_start = df.loc[left, x_column]
-            pooling_end = df.loc[right, x_column]
-
-            st.success(
-                f"Suggested Pooling Window: "
-                f"{pooling_start} to {pooling_end}"
+            x_column = st.selectbox(
+                "Select X Axis",
+                df.columns
             )
 
-            st.markdown(
-                """
+            y_column = st.selectbox(
+                "Select Y Axis",
+                df.columns
+            )
+
+            if st.button(
+                "Generate Pooling Recommendation"
+            ):
+
+                peak_index = int(
+                    df[y_column].idxmax()
+                )
+
+                left = max(peak_index - 1, 0)
+
+                right = min(
+                    peak_index + 1,
+                    len(df) - 1
+                )
+
+                pooling_start = df.loc[
+                    left,
+                    x_column
+                ]
+
+                pooling_end = df.loc[
+                    right,
+                    x_column
+                ]
+
+                st.success(
+                    f"Suggested Pooling Window: "
+                    f"{pooling_start} to {pooling_end}"
+                )
+
+                st.markdown(
+                    """
 ### Pooling Assessment
 
 - Main peak detected successfully
@@ -405,4 +445,8 @@ elif page == "Pooling Recommendation":
 - Suitable for collection
 - Monitor shoulder peaks during scale-up
 """
-            )
+                )
+
+        except Exception as e:
+
+            st.error(f"Error: {e}")
